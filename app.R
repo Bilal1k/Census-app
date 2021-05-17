@@ -23,12 +23,14 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             helpText("Based on the 2016 census."), width = 4,
-            helpText( "Due to the large amount of data, it will take about 10 seconds to load each map", size),
+            helpText( "Due to the large amount of data, it will take about 10 seconds to load each map"),
             
             selectInput("var", 
                         label = "Choose a variable to display",
                         choices = minority,
-                        selected = "South Asian")
+                        selected = "South Asian"),
+            helpText( "Click on dissimination area to get percentage and geocode")
+            
             
         ),
         
@@ -54,6 +56,17 @@ server <- function(input, output){
                  "Korean" = data$Koren,
                  "Japanese" = data$Japns)
          
+         name <- switch(input$var, 
+                        "South Asian" = "South Asian",
+                        "Chinese" = "Chinese",
+                        "Black" = "Black",
+                        "Filipino" = "Filipino",
+                        "Latin American" = "Latin American",
+                        "Arab" = "Arab",
+                        "Southeast Asian" = "Southeast Asian",
+                        "West Asian" = "West Asian",
+                        "Korean" = "Korean",
+                        "Japanese" = "Japanese")
           
           pal <- colorNumeric(
               palette = "Reds",
@@ -73,8 +86,8 @@ server <- function(input, output){
              popup = str_c(as.character(mino), data$GeUID, sep = "% - DA: ")
       ) %>%
           addLegend("bottomright", pal = pal, values = ~mino,
-                    title = paste("Percentage of residents"),
-                    opacity = 0.6)
+                    title = paste("% of",  name),
+                    opacity = 0.3)
                      
           
         })
