@@ -6,7 +6,7 @@ library(shinyjs)
 library(readr)
 
 
-options(cancensus.api_key = "your API here")
+options(cancensus.api_key = "CensusMapper_ce911179beb3eb55bbc984d97ddf55ba")
 
 # List regions
 regions <- list_census_regions('CA16')
@@ -19,10 +19,8 @@ CMAs <- regions$name[regions$level == "CMA" &
 CMA_codes <- regions$region[regions$name %in% CMAs &
                             regions$level == "CMA"]
 
-# get GTA code
-GTA <- regions$region[regions$name == "Toronto"  &
-                        regions$level == "CMA"]
-                           
+table <- tibble::tibble("CMA" = CMAs, "GeoID" =  CMA_codes)
+
 
 # List census vector "col names"
 vec <- list_census_vectors("CA16")
@@ -30,13 +28,17 @@ vec <- list_census_vectors("CA16")
 # Choose relevant vector names
 vec_mother_tongue <- 
   vec$vector[str_detect(vec$details,
-            pattern =  "Mother tongue for the total population excluding institutional residents -
-            100% data; Single responses; Non-official languages; Non-Aboriginal") & 
+            pattern =
+            "Mother tongue for the total population excluding institutional
+            residents -100% data; Single responses; Non-official languages;
+            Non-Aboriginal") & 
         vec$type == "Total" & !is.na(vec$vector)]
 
 vec_POB <- vec$vector[str_detect(vec$details,
-                                                pattern =  "Selected places of birth") & 
-                                    vec$type == "Total" & !is.na(vec$vector)]
+                                pattern =
+                                 "Selected places of birth") & 
+                                  vec$type == "Total" & !is.na(vec$vector)]
+
 
 vec_vis_minor <- vec$vector[str_detect(vec$details,
                                         pattern =  "Visible minority") & 
@@ -44,43 +46,147 @@ vec_vis_minor <- vec$vector[str_detect(vec$details,
 
 vec_ethnic <- vec$vector[str_detect(vec$details,
                                               pattern =  "Ethnic origin") & 
-                                     vec$type == "Total" & !is.na(vec$vector)]
+ 
+                                                               vec$type == "Total" & !is.na(vec$vector)]
+# Get all relevant data from census 
+# "doesn't work due to API daily and monthly limits"
+# data <- get_census(dataset='CA16', regions=list(CMA=CMA_codes),
+# vectors = c(vec_vis_minor,vec_POB,
+# vec_ethnic,vec_mother_tongue),
+# evel="DA", use_cache = TRUE, geo_format = "sf")
+
+
+####################################
 
 
 # pull data from census "for now, only pull visible minority data in the GTA"
-vis_minor_data <- get_census(dataset='CA16', regions=list(CMA=GTA),
+minor_data <- get_census(dataset='CA16', regions=list(
+                          CMA=table$GeoID[table$CMA == "Toronto"]),
                           vectors = c(vec_vis_minor),
                           level="DA", use_cache = TRUE, geo_format = "sf")
 
+# Backup raw data , quote to save backup from runs
+# backup_minor <- minor_data
+minor_data <- backup_minor
 
-# list of minority names
-minority <- c("South Asian", "Chinese", "Black", "Filipino", "Latin American",
-          "Arab","Southeast Asian", "West Asian","Korean","Japanese") 
 
-# Loop to calculate percentage of minority per DA and remove NA
-for (i in minority){
-    new <- round(st_drop_geometry(vis_minor_data[,str_detect(names(vis_minor_data), pattern = i)])
-                 /vis_minor_data$Population * 100, digits = 2)                                    
-    vis_minor_data[ , ncol(vis_minor_data) + 1] <- new                
-    colnames(vis_minor_data)[ncol(vis_minor_data)] <- paste0(i)
-    vis_minor_data[,i][is.na(vis_minor_data[,i])] <- 0
+# small DAs with no data has NA values, change to 0.
+minor_data[is.na(minor_data)] <- 0
+
+# clean col names "use each countries name as the 
+# col name and shorten total name.
+clean_census <- function(x){
+  c <- str_split(x, pattern = ": ", simplify = TRUE)[,2]
+  return(c)
 }
 
-# Get all relavent data from census "doesn't work due to API daily and monthly limits"
-# data <- get_census(dataset='CA16', regions=list(CMA=CMA_codes),
-                             #vectors = c(vec_vis_minor,vec_POB,vec_ethnic,vec_mother_tongue),
-                            # level="DA", use_cache = TRUE, geo_format = "sf")
 
-# Google maps template
-Google_template <- "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga"
+minor_data <- rename_with(minor_data,clean_census, starts_with("V_CA16"))
+minor_data$Total <- st_drop_geometry(minor_data)[,14] 
+minor_data <- minor_data[,-c(13,14)]
 
-# color pallete
-pal <- colorNumeric(
-  palette = "Blues",
-  domain = data$subset)
-
-# save spatial features to H.D.D as shape file, avoid pulling data multiple times, col names will change due to shape file name length and capitalization rules
-st_write(vis_minor_data, "minority.shp")
+# make a list of minority names
+minor_nm <- names(st_drop_geometry(
+  minor_data)[,13:ncol(st_drop_geometry(minor_data))-1])
 
 
+# Calculate percentages, remove NA generated by DAs with zero population
+percent <- function(x){
+  perc <- round(x*100/minor_data$Population, digits = 2)
+  return(perc)
+}
+
+
+minor_data <- minor_data %>%
+  mutate_at(minor_nm, percent)
+
+minor_data[is.na(minor_data)] <- 0
+
+
+# save spatial features to H.D.D as shape file, avoid pulling data multiple 
+# times, col names will change due to shape file name length and capitalization
+# rules.
+
+minor_df <- st_drop_geometry(minor_data)
+minor_geom <- st_geometry(minor_data)
+saveRDS(minor_df, file = "minor_df.rds")
+saveRDS(minor_nm, file = "minor_nm.rds")
+st_write(minor_geom,"minor_geom.shp", append = FALSE)
+
+
+# save geometry as shape file and data as RData file for shiny use. Shape files
+# can change col names and capitalization.
+
+
+########################
+
+
+# pull place of birth data for the GTA
+POB_data <- get_census(dataset='CA16', regions=list(
+                      CMA=table$GeoID[table$CMA == "Toronto"]),
+                       vectors = c(vec_POB),
+                       level="DA", use_cache = TRUE, geo_format = "sf")
+
+
+# Backup raw data , quote to save backup from runs
+# POB_backup <- POB_data
+POB_data <- POB_backup
+
+# small DAs with no data has NA values, change to 0.
+POB_data[is.na(POB_data)] <- 0
+
+# split data into immigrants and recent immigrants
+POB_data_recent <- POB_data %>% select(-c(13:72))
+
+
+POB_data <- POB_data %>% select(-c(73:133))
+
+# clean col names "use each countries name as the 
+# col name and shorten total name.
+
+
+POB_data <- rename_with(POB_data,clean_census, starts_with("V_CA16"))
+POB_data$Total <- st_drop_geometry(POB_data)[,13] 
+POB_data <- POB_data[,-13]
+
+POB_data_recent <- rename_with(POB_data_recent,clean_census, starts_with("V_CA16"))
+POB_data_recent$Total <- st_drop_geometry(POB_data_recent)[,13] 
+POB_data_recent <- POB_data_recent[,-13]
+
+
+# make a list of country names
+con_nm <- names(st_drop_geometry(
+  POB_data)[,14:ncol(st_drop_geometry(POB_data))-1])
+
+con_nm_recent <- 
+  names(st_drop_geometry(
+    POB_data_recent)[,14:ncol(st_drop_geometry(POB_data_recent))-1])
+
+# Calculate percentages, remove NA generated by DAs with zero population
+percent <- function(x){
+  perc <- round(x*100/POB_data$Population, digits = 2)
+  return(perc)
+}
+
+POB_data <- POB_data %>%
+  mutate_at(con_nm, percent)
+
+POB_data_recent <- POB_data_recent %>%
+  mutate_at(con_nm_recent, percent)
+
+POB_data[is.na(POB_data)] <- 0
+POB_data_recent[is.na(POB_data_recent)] <- 0
+
+
+# save spatial features to H.D.D as shape file, avoid pulling data multiple 
+# times, col names will change due to shape file name length and capitalization
+# rules. it is better to save them separtly as a data frame, merge later after loading.
+
+POB_df <- st_drop_geometry(POB_data)
+POB_geom <- st_geometry(POB_data)
+st_write(POB_geom, "POB_geom.shp", append = FALSE)
+saveRDS(POB_data, file = "POB_df.rds")
+saveRDS(con_nm, file = "con_nm.rds")
+
+POB_backup$
 
