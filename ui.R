@@ -1,16 +1,24 @@
 library(shiny)
 library(leaflet)
 
+source("leaflet.R")
+
+
 ui <- fluidPage(
-  titlePanel("Demographic Maps of Major Metro Area in Canada"),
+  titlePanel("Demographic Maps"),
   
   sidebarPanel(width = 3,
-               actionButton("i", "info"),
+               actionButton("i", "i"),
                
                selectInput("CMA",
-                           label = "Choose a censes metro area",
+                           label = "Choose a CMA",
                            choices = c("Toronto",
-                                       "Montréal")),
+                                       "Montréal",
+                                       "Vancouver",
+                                       "Calgary",
+                                       "Ottawa - Gatineau",
+                                       "Edmonton"),
+                           selected = "Toronto"),
                
                
                selectInput("var",

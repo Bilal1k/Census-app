@@ -46,12 +46,12 @@ vec_ethnic <- vec$vector[str_detect(vec$details,
                            vec$type == "Total" & !is.na(vec$vector)]
 
 # Get all relevant data from census 
-# "doesn't work due to API daily and monthly limits"
-data_Montreal <- get_census(dataset='CA16', regions=list(CMA=table$GeoID[table$CMA == "Montréal"]),
+data_Montreal <- get_census(dataset='CA16',
+                            regions=list(CMA=table$GeoID[table$CMA == "Montréal"]),
   vectors = c(vec_vis_minor,vec_POB,
   vec_ethnic,vec_mother_tongue),
   level="CT", use_cache = TRUE, geo_format = "sf")
-data_Montreal <- data
+
 #####################################################################
 
 

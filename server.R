@@ -5,40 +5,54 @@ library(stringr)
 library(sf)
 
 source("leaflet.R")
-
 server <- function(input, output){
-  observeEvent(input$i, {
-    showNotification("Chloropleth of Demographic Data for Major CMAs based on the 2016 census. 
-                   Recent immigrant refers to a person who obtained a
-                   landed immigrant or permanent resident status up to five
-                     years prior to a given census year. Click on map to get 
-                    percentage and Census Tract (CT) Geocode" ,
-                     type = "message")}
+  observeEvent(input$i,{
+    showNotification(ui = tags$div(
+      tags$p("Chloropleth of demographic data for major census 
+              metropolitan areas in Canada (Population over 900,000) 
+              based on the 2016 census at the census tract (CT) level."), 
+      tags$p("Recent immigrant refers to a person who obtained a
+                   landed immigrant or permanent resident status up 
+                   to five years prior to a given census year."), 
+      tags$p("Click on map to get percentage and Census Tract 
+             (CT) Geocode."),
+      tags$p("Part of the data is based on a 25% sample.")),
+                     type = "message", duration = 15)}
   )
   
   dat <- reactive({switch(input$CMA,
-                          "Toronto" = source("GTA.R"),
-                          "Montréal" = source("Montreal.R"))
+                "Toronto" = source("GTA.R"),
+                "Montréal" = source("Montreal.R"),
+                "Vancouver" = source("Vancouver.R"),
+                "Calgary" = source("Calgary.R"),
+                "Ottawa - Gatineau" = source("Ottawa.R"),
+                "Edmonton" = source("Edmonton.R"))
   })
   
-
-observeEvent(dat(),{
-  switch(input$var,
-                "Visible minority" =
-                   updateSelectInput(inputId = "minor", choices = minor_nm),
-
-                "Immigrants places of birth" = 
-                    updateSelectInput(inputId = "pob", choices = pob_nm),
-
-                "Recent immigrants places of birth" = 
-                  updateSelectInput(inputId = "pob_rec", choices = pob_nm_rec),
-
-                "Mother tongue" = 
-                  updateSelectInput(inputId = "lang", choices = lang_nm_rec),
-                
-                "Ethnic origin" =  
-                  updateSelectInput(inputId = "ethn", choices = ethn_nm_rec))
-})
+  observeEvent(dat(),priority = 100,{
+    choices <- minor_nm
+    updateSelectInput(inputId = "minor", choices = choices)
+  })
+  
+  observeEvent(dat(),{
+    choices <- con_nm
+    updateSelectInput(inputId = "pob", choices = choices)
+  })
+  
+  observeEvent(dat(),{
+    choices <- con_nm_rec
+    updateSelectInput(inputId = "pob_rec", choices = choices)
+  })
+  
+  observeEvent(dat(),{
+    choices <- lang_nm
+    updateSelectInput(inputId = "lang", choices = choices)
+  })
+  
+  observeEvent(dat(),{
+    choices <- ethn_nm
+    updateSelectInput(inputId = "ethn", choices = choices)
+  })
   
   observeEvent(dat(),{
   output$map <- renderLeaflet({
