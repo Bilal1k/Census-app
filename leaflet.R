@@ -8,9 +8,9 @@ mymap <- function(df, sub, geom){
   Google_template <-
     "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga"
   
-  try(pal <- colorNumeric(
-  palette = "Reds",
-  domain = df[,sub]),silent = TRUE)
+  pal <- colorNumeric(
+    palette = "Reds",
+    domain = df[,sub])
 
   c <- st_bbox(geom)
   
