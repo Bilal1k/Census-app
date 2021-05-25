@@ -8,7 +8,7 @@ source("leaflet.R")
 server <- function(input, output){
   observeEvent(input$i,{
     showNotification(ui = tags$div(
-      tags$p("Chloropleth of demographic data for major census 
+      tags$p("Choropleth of demographic data for major census 
               metropolitan areas in Canada (Population over 900,000) 
               based on the 2016 census at the census tract (CT) level."), 
       tags$p("Recent immigrant refers to a person who obtained a
