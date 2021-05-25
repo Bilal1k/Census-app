@@ -8,12 +8,14 @@ mymap <- function(df, sub, geom){
   Google_template <-
     "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga"
   
-  pal <- colorNumeric(
+  try(pal <- colorNumeric(
   palette = "Reds",
-  domain = df[,sub])
+  domain = df[,sub]),silent = TRUE)
 
   c <- st_bbox(geom)
-  leaflet(data = geom, options = leafletOptions(minZoom = 9, maxZoom = 18)) %>%
+  
+  
+  leaflet(data = geom, options = leafletOptions(minZoom = 8, maxZoom = 18)) %>%
     
     setMaxBounds(c[[1]],c[[2]],c[[3]],c[[4]]) %>%
 
@@ -25,9 +27,9 @@ mymap <- function(df, sub, geom){
                 fillColor = ~pal(df[,sub]),
                 popup = str_c(as.character(df[,sub]),
                               df[,"GeoUID"],
-                              sep = "% - DA: ")) %>%
+                              sep = "% - CT: ")) %>%
     addLegend("bottomright", pal = pal, values = ~df[,sub],
               title = "Percentage", opacity = 0.3)
+  
 }
-
 

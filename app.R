@@ -5,97 +5,135 @@ library(leaflet)
 library(rgdal)
 library(stringr)
 library(sf)
-library(shinyalert)
-library(wrapr)
 
 source("leaflet.R")
 
-minor_geom <- st_read("min_geom.shp")
-minor_df <- readRDS("minor_df.rds")
-minor_geom <- st_set_geometry(minor_df, value = minor_geom$geometry)
-minor_nm <- readRDS("minor_nm.rds")
-
-
-POB_geom <- st_read("POB_geom.shp")
-POB_df <- readRDS("POB_df.rds")
-POB_geom <- st_set_geometry(POB_df, value = POB_geom$geometry)
-con_nm <- readRDS("con_nm.rds")
-
-POB_geom_rec <- st_read("POB_geom_rec.shp")
-POB_df_rec <- readRDS("POB_df_rec.rds")
-POB_geom_rec <- st_set_geometry(POB_df_rec, value = POB_geom_rec$geometry)
-con_nm_rec <- readRDS("con_nm_rec.rds")
-
+tags$style(type="text/css",
+           ".shiny-output-error { visibility: hidden; }",
+           ".shiny-output-error:before { visibility: hidden; }"
+)
 
 ui <- fluidPage(
-
-    titlePanel("Chloropleth of Census Data for the GTA Population"),
   
-        sidebarPanel(width = 12,
+        sidebarPanel(width = 3,
         actionButton("i", "info"),
                      
-                     
+        selectInput("CMA",
+                    label = "Choose a censes metro area",
+                    choices = c("Toronto",
+                                "Montréal")),
+       
+        
           selectInput("var",
                       label = "Choose a variable",
                       choices = c("Visible minority",
                                   "Immigrants places of birth",
-                                  "Recent immigrants places of birth"),
-                      selected = "Visible minority"),
+                                  "Recent immigrants places of birth",
+                                  "Mother tongue",
+                                  "Ethnic origin")),
           
           conditionalPanel(condition = "input.var == 'Visible minority'",
             selectInput("minor", 
                         label = "Choose a minority",
-                        choices = minor_nm,
+                        choices = NULL
                        )),
             
           conditionalPanel(condition = "input.var == 'Immigrants places of birth'",
              selectInput("pob", 
                          label = "Choose a place",
-                         choices = con_nm,
+                         choices = NULL
                          )),
         
         conditionalPanel(condition = "input.var == 'Recent immigrants places of birth'",
                          selectInput("pob_rec",
                                      label = "Choose a place",
-                                     choices = con_nm_rec,
+                                     choices = NULL
                          )),
+                                     
+         conditionalPanel(condition = "input.var == 'Mother tongue'",
+                          selectInput("lang",
+                                      label = "Choose a language",
+                                      choices = NULL                                 
+                         )),
+        conditionalPanel(condition = "input.var == 'Ethnic origin'",
+                         selectInput("ethn",
+                                     label = "Choose an ethnic origin",
+                                     choices = NULL                                    
+                         ))
         ),
         
-        mainPanel(leafletOutput("map"), width = 12)
+        tags$style(type="text/css",
+                   ".shiny-output-error { visibility: hidden; }",
+                   ".shiny-output-error:before { visibility: hidden; }"
+        ),
+        
+        mainPanel(leafletOutput("map"), width = 9),
+    
 )
     
 
 
 server <- function(input, output){
         observeEvent(input$i, {
-          showNotification("Based on the 2016 census. 
+          showNotification("Chloropleth of Demographic Data for Major CMAs based on the 2016 census. 
                    Recent immigrant refers to a person who obtained a
                    landed immigrant or permanent resident status up to five
-                     years prior to a given census year" , type = "message")}
+                     years prior to a given census year. Click on map to get 
+                    percentage and Census Tract (CT) Geocode" ,
+                           type = "message")}
         )
-            
+  
+        dat <- reactive({switch(input$CMA,
+                              "Toronto" = source("GTA.R"),
+                              "Montréal" = source("Montreal.R"))
+        })
+        
+        observeEvent(dat(),priority = 100,{
+          choices <- minor_nm
+          updateSelectInput(inputId = "minor", choices = choices)
+        })
+        
+        observeEvent(dat(),{
+          choices <- con_nm
+          updateSelectInput(inputId = "pob", choices = choices)
+        })
+        
+        observeEvent(dat(),{
+          choices <- con_nm_rec
+          updateSelectInput(inputId = "pob_rec", choices = choices)
+        })
+        
+        observeEvent(dat(),{
+          choices <- lang_nm
+          updateSelectInput(inputId = "lang", choices = choices)
+        })
+        
+        observeEvent(dat(),{
+          choices <- ethn_nm
+          updateSelectInput(inputId = "ethn", choices = choices)
+        })
     
+        
         output$map <- renderLeaflet({
        
-          
-        dat <-  switch(input$var,
+        df <-   switch(input$var,
                    "Visible minority" = minor_df,
                    "Immigrants places of birth" = POB_df,
-                   "Recent immigrants places of birth" = POB_df_rec)
-          
-        geom <- switch(input$var,
-                        "Visible minority" = minor_geom,
-                        "Immigrants places of birth" = POB_geom,
-                       "Recent immigrants places of birth" = POB_geom_rec
-                       )
+                   "Recent immigrants places of birth" = POB_df_rec,
+                   "Mother tongue" = lang_df,
+                   "Ethnic origin" = ethn_df)
+        
         
         sub <-  switch(input$var,
                        "Visible minority" = input$minor,
                        "Immigrants places of birth" = input$pob,
-                       "Recent immigrants places of birth" = input$pob_rec)
+                       "Recent immigrants places of birth" = input$pob_rec,
+                       "Mother tongue" = input$lang,
+                       "Ethnic origin" = input$ethn)
         
 
-        mymap(dat,sub,geom)
+          mymap(df,sub,geom)
+    
     
         })}
 
